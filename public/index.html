@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Firsts Game</title>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        canvas {
+            width: 90dvw;
+            height: 90dvw;
+            max-width: 350px;
+            max-height: 350px;
+            background-color: #ebebeb;
+            border: 1px solid black;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <canvas width="640" height="640"></canvas>
+
+    <script>
+        const canvas = document.querySelector("canvas");
+        const ctx = canvas.getContext("2d");
+
+        const socket = io();
+
+        let players = undefined;
+        let me = undefined;
+
+        socket.on("newPlayer", (serverPlayers) => {
+            me = serverPlayers[socket.id];
+            delete serverPlayers[socket.id];
+            players = serverPlayers;
+        });
+
+        socket.on("playerJoined", (p) => {
+            players[p.id] = { x: p.x, y: p.y };
+        });
+
+        socket.on("playerDisconnected", (id) => {
+            delete players[id];
+        })
+
+        socket.on("playerMoved", (p) => {
+            if (players[p.id]) {
+                players[p.id].x = p.x;
+                players[p.id].y = p.y;
+            }
+        })
+
+        document.addEventListener("keydown", (event) => {
+            if (!me) return;
+
+            let actions = {
+                "ArrowDown": () => me.y += 32,
+                "ArrowUp": () => me.y -= 32,
+                "ArrowLeft": () => me.x -= 32,
+                "ArrowRight": () => me.x += 32,
+            }
+
+            if (actions[event.key]) actions[event.key]();
+            socket.emit("move", me);
+        });
+
+        let interval = setInterval(() => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (players != undefined) {
+                ctx.fillStyle = "rgba(50, 50, 50, 0.35)";
+                for (let id in players) {
+                    let p = players[id];
+                    ctx.fillRect(p.x, p.y, 32, 32);
+                }
+            }
+
+            if (me != undefined) {
+                ctx.fillStyle = "rgba(75, 200, 45)";
+                ctx.fillRect(me.x, me.y, 32, 32);
+            }
+        }, 1000 / 60);
+
+    </script>
+
+</body>
+
+</html>
