@@ -1,7 +1,9 @@
-const express = require("express");
-const http = require("http")
-const { Server } = require("socket.io");
-const cors = require("cors");
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import cors from "cors";
+import createGameState from "./public/globals/game.js";
+import { randomUUID } from "crypto";
 
 const app = express();
 app.use(cors());
@@ -10,29 +12,41 @@ app.use(express.static("./public"));
 const server = http.createServer(app);
 const io = new Server(server);
 
-let players = {}
+let game = createGameState();
+let interval = undefined;
 
 io.on("connection", (socket) => {
     console.log("novo cliente conectado! id: ", socket.id);
 
-    players[socket.id] = {x: Math.floor(20 * Math.random()) * 32, y: Math.floor(20 * Math.random()) * 32};
+    game.addPlayer(socket.id);
+    let playerAdmin = game.getAdmin();
+    socket.emit("setup", game);
+    socket.broadcast.emit("playerJoined", game.state.players[socket.id]);
+    socket.broadcast.emit("playerAdmin", playerAdmin);
+    socket.emit("playerAdmin", playerAdmin);
 
-    socket.emit("newPlayer", players);
+    socket.on("initGame", (delayMs) => {
+        clearInterval(interval);
+        game.state.fruits = {};
+        interval = setInterval(() => {
+            game.addFruit(randomUUID());
+            console.log("spawn fruit");
+            socket.emit("updateFruits", game.state.fruits);
+            socket.broadcast.emit("updateFruits", game.state.fruits);
+        }, delayMs);
+        console.log(game.state.fruits);
+    });
 
-    socket.broadcast.emit("playerJoined", {id: socket.id, ...players[socket.id]});
-
-    socket.on("move", (data) => {
-        if (players[socket.id]) {
-            players[socket.id].x = data.x;
-            players[socket.id].y = data.y
-            
-            socket.broadcast.emit("playerMoved", {id: socket.id, ...players[socket.id]});
+    socket.on("playerMoved", (command) => {
+        if (game.state.players[command.playerId]) {
+            game.state.players[command.playerId].x = command.x;
+            game.state.players[command.playerId].y = command.y;
         }
+        socket.broadcast.emit("otherPlayerMoved", command);
     });
 
     socket.on("disconnect", () => {
-        console.log("cliente desconectado! id: ", socket.id);
-        delete players[socket.id];
+        game.removePlayer(socket.id);
         socket.broadcast.emit("playerDisconnected", socket.id);
     });
 });

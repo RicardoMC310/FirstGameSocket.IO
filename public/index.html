@@ -33,68 +33,109 @@
 <body>
 
     <canvas width="640" height="640"></canvas>
+    <div id="comecar">
+        <input type="number" id="delaySpawnFruits" required placeholder="delay spawn fruits in ms" min="0" max="10000"
+            step="1" value="1000">
+        <button>começar</button>
+    </div>
 
-    <script>
+    <script type="module">
+        import createGameState from "./globals/game.js";
+        import createKeyboardListener from "./globals/keyboard.js";
+
         const canvas = document.querySelector("canvas");
         const ctx = canvas.getContext("2d");
 
+        const divAdmin = document.querySelector("#comecar");
+        const inputDelay = document.querySelector("#comecar input");
+        const buttonComecar = document.querySelector("#comecar button");
+
         const socket = io();
 
-        let players = undefined;
-        let me = undefined;
+        let playerId = undefined;
+        let game = createGameState();
+        let playerAdmin = {};
+        let keyboardListener = undefined;
 
-        socket.on("newPlayer", (serverPlayers) => {
-            me = serverPlayers[socket.id];
-            delete serverPlayers[socket.id];
-            players = serverPlayers;
+        game.subscripe((command) => {
+            socket.emit("playerMoved", command);
         });
 
-        socket.on("playerJoined", (p) => {
-            players[p.id] = { x: p.x, y: p.y };
+        socket.on("connect", () => {
+            playerId = socket.id;
         });
 
-        socket.on("playerDisconnected", (id) => {
-            delete players[id];
+        socket.on("otherPlayerMoved", (player) => {
+            if (game.state.players[player.playerId]) {
+                game.state.players[player.playerId].x = player.x;
+                game.state.players[player.playerId].y = player.y;
+            }
+        });
+
+        socket.on("setup", (gameState) => {
+            game.setState(gameState.state);
+            keyboardListener = createKeyboardListener(playerId, document);
+            keyboardListener.subscripe(game.playerMoved);
+        });
+        
+        socket.on("playerAdmin", (serverPlayerAdmin) => {
+            playerAdmin = serverPlayerAdmin;
+            divAdmin.style.display = "none";
+
+            if (playerAdmin.playerId === playerId) {
+                divAdmin.style.display = "block";
+                buttonComecar.addEventListener("click", () => {
+                    console.log("> começar!");
+                    socket.emit("initGame", inputDelay.value);
+                });
+            }
+        });
+
+        socket.on("updateFruits", (fruits) => {
+            game.state.fruits = fruits;
         })
 
-        socket.on("playerMoved", (p) => {
-            if (players[p.id]) {
-                players[p.id].x = p.x;
-                players[p.id].y = p.y;
+        socket.on("playerJoined", (player) => {
+            if (player) {
+                let p = { x: player.x, y: player.y };
+                game.state.players[player.playerId] = p;
             }
-        })
-
-        document.addEventListener("keydown", (event) => {
-            if (!me) return;
-
-            let actions = {
-                "ArrowDown": () => me.y += 32,
-                "ArrowUp": () => me.y -= 32,
-                "ArrowLeft": () => me.x -= 32,
-                "ArrowRight": () => me.x += 32,
-            }
-
-            if (actions[event.key]) actions[event.key]();
-            socket.emit("move", me);
         });
 
-        let interval = setInterval(() => {
+        socket.on("playerDisconnected", (playerId) => {
+            delete game.state.players[playerId];
+        });
+
+        function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (players != undefined) {
-                ctx.fillStyle = "rgba(50, 50, 50, 0.35)";
-                for (let id in players) {
-                    let p = players[id];
-                    ctx.fillRect(p.x, p.y, 32, 32);
+            for (const player in game.state.players) {
+                ctx.fillStyle = "rgba(30, 30, 30, 0.25)";
+                ctx.fillRect(game.state.players[player].x, game.state.players[player].y, 32, 32);
+                if (player == playerId) {
+                    continue;
                 }
             }
 
-            if (me != undefined) {
-                ctx.fillStyle = "rgba(75, 200, 45)";
-                ctx.fillRect(me.x, me.y, 32, 32);
+            for (const fruit in game.state.fruits) {
+                ctx.fillStyle = "rgb(200, 70, 45)";
+                ctx.fillRect(
+                    game.state.fruits[fruit].x,
+                    game.state.fruits[fruit].y,
+                    32, 32
+                )
             }
-        }, 1000 / 60);
 
+            if (playerId) {
+                let p = game.state.players[playerId];
+                ctx.fillStyle = "rgb(40, 200, 40)";
+                ctx.fillRect(p.x, p.y, 32, 32);
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
     </script>
 
 </body>
