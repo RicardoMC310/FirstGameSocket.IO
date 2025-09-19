@@ -34,6 +34,12 @@ io.on("connection", (socket) => {
         delayMs = Math.max(1000, Math.min(10000, delayMs));
 
         interval = setInterval(() => {
+            if (Object,keys(game.state.fruits).length >= 400) {
+                clearInterval(interval);
+                interval = undefined;
+                return;
+            }
+
             game.addFruit(randomUUID());
             io.emit("updateFruits", { ...game.state.fruits });
         }, delayMs);
@@ -63,6 +69,13 @@ io.on("connection", (socket) => {
     socket.on("disconnect", () => {
         game.removePlayer(socket.id);
         socket.broadcast.emit("playerDisconnected", socket.id);
+
+        if (Object.keys(game.state.players).length == 0) {
+            clearInterval(interval);
+            interval = undefined;
+            game.state.fruits = {};
+            io.emit("updateFruits", {...game.state.fruits});
+        }
     });
 });
 
