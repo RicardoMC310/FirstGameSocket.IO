@@ -34,7 +34,7 @@ io.on("connection", (socket) => {
         delayMs = Math.max(1000, Math.min(10000, delayMs));
 
         interval = setInterval(() => {
-            if (Object,keys(game.state.fruits).length >= 400) {
+            if (Object.keys(game.state.fruits).length >= 400) {
                 clearInterval(interval);
                 interval = undefined;
                 return;
