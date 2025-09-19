@@ -31,6 +31,8 @@ io.on("connection", (socket) => {
         game.state.fruits = {};
         io.emit("updateFruits", {...game.state.fruits});
 
+        delayMs = Math.max(1000, Math.min(10000, delayMs));
+
         interval = setInterval(() => {
             game.addFruit(randomUUID());
             io.emit("updateFruits", { ...game.state.fruits });
