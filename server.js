@@ -75,7 +75,11 @@ io.on("connection", (socket) => {
             interval = undefined;
             game.state.fruits = {};
             io.emit("updateFruits", {...game.state.fruits});
+            return;
         }
+
+        playerAdmin = game.getAdmin();
+        io.emit("playerAdmin", playerAdmin);
     });
 });
 
