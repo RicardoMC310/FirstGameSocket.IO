@@ -19,7 +19,7 @@
                     <div class="title">My Firsts Game</div>
                     <div class="meta">Jogue com amigos — pegue frutas e pontue</div>
                 </div>
-                <div class="meta">Controles: setas / WASD</div>
+                <div class="meta">Controles: setas</div>
             </div>
 
             <canvas width="640" height="640"></canvas>
@@ -139,6 +139,7 @@
 
         socket.on("playerDisconnected", (playerId) => {
             delete game.state.players[playerId];
+            updateScore();
         });
 
         function draw() {
