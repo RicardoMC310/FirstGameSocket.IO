@@ -6,37 +6,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Firsts Game</title>
     <script src="/socket.io/socket.io.js"></script>
-
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        canvas {
-            width: 90dvw;
-            height: 90dvw;
-            max-width: 350px;
-            max-height: 350px;
-            background-color: #ebebeb;
-            border: 1px solid black;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-    </style>
+    <link rel="stylesheet" href="./style.css">
 
 </head>
 
 <body>
 
-    <canvas width="640" height="640"></canvas>
-    <div id="comecar">
-        <input type="number" id="delaySpawnFruits" required placeholder="delay spawn fruits in ms" min="0" max="10000"
-            step="1" value="1000">
-        <button>começar</button>
+    <div class="app">
+        <div class="game-card">
+            <div class="topbar">
+                <div>
+                    <div class="title">My Firsts Game</div>
+                    <div class="meta">Jogue com amigos — pegue frutas e pontue</div>
+                </div>
+                <div class="meta">Controles: setas / WASD</div>
+            </div>
+
+            <canvas width="640" height="640"></canvas>
+        </div>
+
+        <aside class="sidebar">
+            <div id="comecar">
+                <input type="number" id="delaySpawnFruits" required placeholder="delay spawn fruits in ms" min="0" max="10000" step="1" value="1000">
+                <button>começar</button>
+            </div>
+
+            <div style="font-size:0.95rem;color:var(--muted);">Ranking</div>
+            <ul id="scores"></ul>
+
+            <div style="margin-top:auto;font-size:0.80rem;color:rgba(255,255,255,0.42);">
+                servidor local • desenvolvido com ❤️
+            </div>
+        </aside>
     </div>
 
     <script type="module">
@@ -57,6 +58,31 @@
         let playerAdmin = {};
         let keyboardListener = undefined;
 
+        function updateScore() {
+            const ranking = Object.entries(game.state.players)
+                .sort(([, a], [, b]) => b.score - a.score)
+                .map(([id, data], index) => ({
+                    rank: index + 1,
+                    id,
+                    score: data.score
+                })).slice(0, 5);
+
+            const ul = document.querySelector("ul");
+            ul.innerHTML = "";
+
+            for (const player of ranking) {
+                const li = document.createElement("li");
+                li.textContent = `#${player.rank} ${player.id} — ${player.score} pontos`;
+                if (player.id == playerId) {
+                    li.classList.add("li-my");
+                }
+                if (player.rank == 1) {
+                    li.classList.add("li-primary");
+                }
+                ul.appendChild(li);
+            }
+        }
+
         game.subscripe((command) => {
             socket.emit("playerMoved", command);
         });
@@ -76,8 +102,9 @@
             game.setState(gameState.state);
             keyboardListener = createKeyboardListener(playerId, document);
             keyboardListener.subscripe(game.playerMoved);
+            updateScore();
         });
-        
+
         socket.on("playerAdmin", (serverPlayerAdmin) => {
             playerAdmin = serverPlayerAdmin;
             divAdmin.style.display = "none";
@@ -91,15 +118,23 @@
             }
         });
 
+        socket.on("updateScore", (playerId, score) => {
+            if (game.state.players[playerId]) {
+                game.state.players[playerId].score = score;
+                updateScore();
+            }
+        });
+
         socket.on("updateFruits", (fruits) => {
             game.state.fruits = fruits;
         })
 
         socket.on("playerJoined", (player) => {
             if (player) {
-                let p = { x: player.x, y: player.y };
+                let p = { x: player.x, y: player.y, score: player.score };
                 game.state.players[player.playerId] = p;
             }
+            updateScore();
         });
 
         socket.on("playerDisconnected", (playerId) => {

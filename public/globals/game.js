@@ -22,6 +22,7 @@ export default function createGameState() {
             playerId,
             x: Math.floor(20 * Math.random()) * 32,
             y: Math.floor(20 * Math.random()) * 32,
+            score: 0
         }
 
         state.players[playerId] = p;
@@ -65,7 +66,8 @@ export default function createGameState() {
         let commandObserver = {
             playerId: command.playerId,
             x: state.players[command.playerId].x,
-            y: state.players[command.playerId].y
+            y: state.players[command.playerId].y,
+            score: state.players[command.playerId].score
         };
         notifyAll(commandObserver);
     }
@@ -73,16 +75,40 @@ export default function createGameState() {
     function getAdmin() {
         const entries = Object.entries(state.players);
         if (entries.length == 0) return null;
-        
+
         const [playerId, value] = entries[0];
-        return {playerId, ...value};
+        return { playerId, ...value };
     }
 
     function addFruit(fruitId) {
-        state.fruits[fruitId] = {
-            x: Math.floor(20 * Math.random()) * 32,
-            y: Math.floor(20 * Math.random()) * 32,
+        let fruit;
+        let collision;
+
+        do {
+            fruit = {
+                x: Math.floor(20 * Math.random()) * 32,
+                y: Math.floor(20 * Math.random()) * 32,
+            };
+
+            collision = Object.values(state.fruits)
+                .some(f => f.x === fruit.x && f.y === fruit.y);
+
+        } while (collision);
+
+        state.fruits[fruitId] = fruit;
+    }
+
+    function checkCollisionFruit(command) {
+        let p = state.players[command.playerId];
+
+        for (const fruitId in state.fruits) {
+            let f = state.fruits[fruitId];
+            if (p.x == f.x && p.y == f.y){
+                return fruitId;
+            }
         }
+        
+        return undefined;
     }
 
     return {
@@ -93,6 +119,7 @@ export default function createGameState() {
         playerMoved,
         subscripe,
         getAdmin,
-        addFruit
+        addFruit,
+        checkCollisionFruit
     }
 }

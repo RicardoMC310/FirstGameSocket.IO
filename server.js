@@ -20,21 +20,26 @@ io.on("connection", (socket) => {
 
     game.addPlayer(socket.id);
     let playerAdmin = game.getAdmin();
-    socket.emit("setup", game);
+
+    socket.emit("setup", {...game});
     socket.broadcast.emit("playerJoined", game.state.players[socket.id]);
-    socket.broadcast.emit("playerAdmin", playerAdmin);
-    socket.emit("playerAdmin", playerAdmin);
+    io.emit("playerAdmin", playerAdmin);
 
     socket.on("initGame", (delayMs) => {
         clearInterval(interval);
+        interval = undefined;
         game.state.fruits = {};
+        io.emit("updateFruits", {...game.state.fruits});
+
         interval = setInterval(() => {
             game.addFruit(randomUUID());
-            console.log("spawn fruit");
-            socket.emit("updateFruits", game.state.fruits);
-            socket.broadcast.emit("updateFruits", game.state.fruits);
+            io.emit("updateFruits", { ...game.state.fruits });
         }, delayMs);
-        console.log(game.state.fruits);
+        
+        for (const playerId in game.state.players) {
+            game.state.players[playerId].score = 0;
+            io.emit("updateScore", playerId, game.state.players[playerId].score);
+        }
     });
 
     socket.on("playerMoved", (command) => {
@@ -43,6 +48,14 @@ io.on("connection", (socket) => {
             game.state.players[command.playerId].y = command.y;
         }
         socket.broadcast.emit("otherPlayerMoved", command);
+
+        let returnCollision = game.checkCollisionFruit({playerId: command.playerId});
+        if (returnCollision) {
+            delete game.state.fruits[returnCollision];
+            game.state.players[command.playerId].score += 1;
+            io.emit("updateScore", command.playerId, game.state.players[command.playerId].score);
+            io.emit("updateFruits", {...game.state.fruits});
+        }
     });
 
     socket.on("disconnect", () => {
